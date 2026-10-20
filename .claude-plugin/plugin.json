@@ -1,0 +1,33 @@
+{
+  "name": "usage-bar",
+  "version": "0.1.0",
+  "description": "A configurable status row at the bottom of the band above the prompt: 5-hour and weekly plan limits, prompt-cache time left, and optional context, cost and other limits; a second row shows output speed, time to first token, cache hit rate and failed requests. Colors follow the percentage (green, Claude orange, red).",
+  "author": { "name": "zgmengde" },
+  "license": "MIT",
+  "homepage": "https://github.com/zgmengde/usage-bar",
+  "repository": "https://github.com/zgmengde/usage-bar",
+  "keywords": ["mod", "statusline", "usage-limits", "desktop"],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "show_five_hour": { "type": "boolean", "title": "5-hour limit", "description": "Show the 5-hour plan limit.", "default": true },
+    "show_weekly": { "type": "boolean", "title": "Weekly limit", "description": "Show the weekly plan limit.", "default": true },
+    "show_cache": { "type": "boolean", "title": "Prompt cache", "description": "Show how long the main conversation's prompt cache stays warm.", "default": true },
+    "show_other_limits": { "type": "boolean", "title": "Other limits", "description": "Show any other limit window the API reports (such as a gateway spend limit), once it passes the threshold below.", "default": true },
+    "show_context": { "type": "boolean", "title": "Context", "description": "Show how full the context window is. The desktop app already shows this, so it is off by default.", "default": false },
+    "show_cost": { "type": "boolean", "title": "Session cost", "description": "Show the session's estimated API cost. On a subscription this is an estimate, not what you pay.", "default": false },
+    "show_reset": { "type": "boolean", "title": "Reset countdown", "description": "Show the time left until each limit resets.", "default": true },
+    "show_speed": { "type": "boolean", "title": "Output speed", "description": "Second row: this session's main-thread output tokens per second, summed like DeepSeek Harness does: total output tokens (hidden thinking included) over total time from each response's start to its end.", "default": true },
+    "show_first_token": { "type": "boolean", "title": "Time to first token", "description": "Second row: average seconds this session from sending a main-thread request until its response starts, retries the engine makes included.", "default": true },
+    "show_cache_hit": { "type": "boolean", "title": "Cache hit rate", "description": "Second row: share of the latest main-thread request's input read from the prompt cache. Marked 'Write' when it mostly wrote the cache, which is normal for a first or post-expiry request.", "default": true },
+    "show_failures": { "type": "boolean", "title": "Failed requests", "description": "Second row: requests this session, subagents included, that got no response. Requests you interrupt do not count.", "default": true },
+    "conditional_threshold": { "type": "number", "title": "Other limits threshold", "description": "Percent at which other limits start to show.", "default": 50 },
+    "layout": { "type": "string", "title": "Layout", "description": "auto gives usage and performance a row each and wraps a row that is too narrow; one-line puts everything on one row; two-lines splits the items into two rows when only one group is shown.", "default": "auto", "options": ["auto", "one-line", "two-lines"] },
+    "bar": { "type": "string", "title": "Bar style", "description": "dither: pixel bars; solid: filled bars; none: numbers only.", "default": "dither", "options": ["dither", "solid", "none"] },
+    "color": { "type": "string", "title": "Color mode", "description": "by-percent: blend through the color stops; threshold: change color at 80% and 95%; mono: one color.", "default": "by-percent", "options": ["by-percent", "threshold", "mono"] },
+    "color_stops": { "type": "string", "title": "Color stops", "description": "percent:#hex pairs, comma separated. Colors blend by hue between stops.", "default": "0:#46a758,60:#d97757,100:#e5484d" },
+    "icons": { "type": "string", "title": "Icons", "description": "Show an icon before each item.", "default": "on", "options": ["on", "off"] },
+    "cache_ttl": { "type": "string", "title": "Prompt-cache TTL", "description": "How long the cache countdown runs after the last main-thread turn. Match it to your prompt-cache TTL.", "default": "1h", "options": ["1h", "5m"] },
+    "notify_at": { "type": "string", "title": "Notify at", "description": "Percents of the 5-hour or weekly limit that raise a notification, comma separated. Empty turns it off.", "default": "80,95" },
+    "language": { "type": "string", "title": "Language", "description": "Label language. auto follows LANG.", "default": "auto", "options": ["auto", "en", "zh"] }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "usage-bar",
+  "owner": {
+    "name": "zgmengde"
+  },
+  "metadata": {
+    "description": "usage-bar: a status row above the Claude Code prompt."
+  },
+  "plugins": [
+    {
+      "name": "usage-bar",
+      "source": "./",
+      "description": "Plan limits, prompt-cache countdown and context use above the prompt, with a second row for output speed, time to first token, cache hit rate and failed requests."
+    }
+  ]
+}
