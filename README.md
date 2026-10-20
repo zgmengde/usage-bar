@@ -2,10 +2,10 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A mod for the Claude Code desktop app that draws a status row just above the prompt: your 5-hour and weekly plan limits, how long the prompt cache stays warm, and context use.
+A mod for the Claude desktop app that draws a status row just above the prompt in the Code tab: your 5-hour and weekly plan limits, how long the prompt cache stays warm, and context use.
 A second row shows how the session is running: output speed, time to first token, cache hit rate and failed requests.
 
-For now it supports the desktop app only. In a terminal session it draws nothing and sends no limit notifications.
+For now it supports the desktop app only. Claude Code in a terminal gets no row and no limit notifications.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/preview-en-dark.png">
@@ -16,22 +16,20 @@ Each number takes the color of its state, so you can read the row at a glance: g
 
 ## Install
 
-At the prompt of a Claude Code terminal session:
+In the Claude desktop app, open a conversation in the Code tab, then:
 
-```
-/plugin install usage-bar --marketplace zgmengde/usage-bar
-```
+1. Click **+** next to the prompt box, then **Plugins** > **Manage plugins**.
+2. Click **Add** > **Add marketplace** > **Add from a repository**.
+3. Enter `zgmengde/usage-bar` and click **Sync**.
+4. Find usage-bar in the plugin list and add it.
 
-Answer `y` to add the marketplace, then pick a scope (user scope loads it in every session).
-
-From a shell:
+Or install it from a shell. The Code tab loads plugins installed at the user scope:
 
 ```bash
 claude plugin install usage-bar --marketplace zgmengde/usage-bar
 ```
 
-In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `zgmengde/usage-bar`, then **Add plugin**.
-A mod installed at the user scope from a terminal also loads in the desktop app's Code tab, which is where it shows.
+The row appears in your next conversation, or after `/reload-plugins` in an open one.
 
 ## What it shows
 
@@ -68,7 +66,7 @@ Speed and time to first token are session totals, summed the way [DeepSeek Harne
 - **TTFT** (time to first token) = total time from each request's start to its first streamed chunk, divided by the number of requests.
 - **speed** = total output tokens divided by total time from each first chunk to the end of its response.
 
-Claude Code does not stream thinking text to plugins, but `output_tokens` includes thinking tokens.
+The app does not stream thinking text to plugins, but `output_tokens` includes thinking tokens.
 So the first chunk counts any chunk, including the engine's own envelope events; counting only visible text would give speeds of over ten thousand tokens per second.
 Totals smooth out a single odd request, so there is no outlier filter.
 
@@ -115,12 +113,12 @@ To make usage-bar the outermost, list it first in `prependPlugins` in `~/.claude
 }
 ```
 
-Claude Code reads this key from managed settings; on a machine with no managed settings it also reads it from your user settings, for plugins you installed yourself.
+The app reads this key from managed settings; on a machine with no managed settings it also reads it from your user settings, for plugins you installed yourself.
 
 ## Privacy
 
 - No network access: the mod makes no requests of its own.
-- It runs no commands and reads or writes no files of its own. It reads only what Claude Code hands every plugin: the session's usage, rate limits, model, and the `LANG` and `LC_ALL` variables.
+- It runs no commands and reads or writes no files of its own. It reads only what the app hands every plugin: the session's usage, rate limits, model, and the `LANG` and `LC_ALL` variables.
 - To time requests it sits in the response stream: it notes when chunks arrive and reads each response's token usage and stop reason. It does not read or keep the content, and passes every chunk on unchanged.
 - It keeps a few values in its plugin store, `~/.claude/plugins/store/usage-bar_*.json`, so the row survives a restart:
   - the latest limit percentages and reset times (shared by all sessions, since limits belong to the account);
@@ -132,10 +130,10 @@ Claude Code reads this key from managed settings; on a machine with no managed s
 
 ## Limitations
 
-- The row appears once the session's Claude Code process is running. In the desktop app, a new conversation starts that process when you send its first message, so an empty new conversation shows no row.
+- The row appears once a conversation is running. A new conversation starts when you send its first message, so an empty new conversation shows no row.
 - Limit percentages come with model responses. A fresh process shows the values saved from the last response until the next one arrives, and they can read about a point lower than the official usage page.
 - Plugins do not get the band's pixel width, so the layout works from an estimate (`bodyColumns × 8 px`). The row is centered so the margins stay even, but a text can be off by a few pixels.
-- Desktop app only, for now. Other surfaces (the terminal, VS Code, mobile) get no row and no limit notifications; limit values saved by a session there are shared, so the desktop row can still use them.
+- Desktop app only, for now. Other surfaces (Claude Code in a terminal, VS Code, mobile) get no row and no limit notifications; limit values saved by a session there are shared, so the desktop row can still use them.
 
 ## Development
 

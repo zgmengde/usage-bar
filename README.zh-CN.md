@@ -2,11 +2,11 @@
 
 [English](README.md) | 简体中文
 
-usage-bar 是一个 Claude Code 桌面版 mod，在输入框正上方画一行状态栏。
+usage-bar 是 Claude 桌面版的 mod，在 Code 标签页的输入框正上方画一行状态栏。
 第一行显示 5 小时额度、每周额度、提示缓存还能热多久，以及上下文用量。
 第二行显示本会话的运行情况：输出速度、首字耗时、缓存命中率和失败次数。
 
-目前只支持桌面版。在终端会话里，它不画状态栏，也不发额度提醒。
+目前只支持桌面版。在终端里运行的 Claude Code 不显示状态栏，也不发额度提醒。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/preview-zh-dark.png">
@@ -17,28 +17,20 @@ usage-bar 是一个 Claude Code 桌面版 mod，在输入框正上方画一行�
 
 ## 安装
 
-在 Claude Code 终端会话的输入框里执行：
+在 Claude 桌面版的 Code 标签页里打开一个对话，然后：
 
-```
-/plugin install usage-bar --marketplace zgmengde/usage-bar
-```
+1. 点击输入框旁边的 **+**，选择 **Plugins** > **Manage plugins**。
+2. 点击 **Add** > **Add marketplace** > **Add from a repository**。
+3. 填入 `zgmengde/usage-bar`，点击 **Sync**。
+4. 在插件列表里找到 usage-bar，添加它。
 
-提示添加市场时输入 `y`，然后选择作用范围。
-选 user 范围后，每个会话都会加载它。
-
-在 shell 里执行：
+也可以在 shell 里安装。Code 标签页会加载按 user 范围安装的插件：
 
 ```bash
 claude plugin install usage-bar --marketplace zgmengde/usage-bar
 ```
 
-桌面版不能执行 `/plugin`，按下面的步骤安装：
-
-1. 点击输入框旁边的 **+**。
-2. 选择 **Plugins**，再选 **Add marketplace**，填入 `zgmengde/usage-bar`。
-3. 选择 **Add plugin**。
-
-在终端里按 user 范围安装后，桌面版的 Code 标签页也会加载它，状态栏显示在桌面版里。
+装好后，下一个对话就会显示状态栏；已经打开的对话执行 `/reload-plugins` 后显示。
 
 ## 显示内容
 
@@ -78,7 +70,7 @@ claude plugin install usage-bar --marketplace zgmengde/usage-bar
 - **首字** = 每次请求从开始到第一个流式数据块的时间之和，除以请求数。
 - **速度** = 输出 token 总数，除以每次请求从第一个数据块到响应结束的时间之和。
 
-Claude Code 不把思考内容推给插件，但 `output_tokens` 包含思考 token。
+桌面版不把思考内容推给插件，但 `output_tokens` 包含思考 token。
 所以第一个数据块按任意数据块算，包括引擎自己的信封事件。
 如果只认可见文字，速度会算成每秒上万 token。
 累计值会摊平单次异常请求，所以没有另设异常值过滤。
@@ -129,13 +121,13 @@ usage-bar 先取其他 mod 画好的内容放在上面，再把自己的两行�
 }
 ```
 
-Claude Code 从托管设置里读这个配置项。
+桌面版从托管设置里读这个配置项。
 如果本机没有托管设置，它也会从用户设置里读，但只对你自己安装的插件生效。
 
 ## 隐私
 
 - 不联网：mod 自己不发任何网络请求。
-- 不执行命令，也不自行读写文件。它只读取 Claude Code 交给每个插件的信息：会话用量、额度、模型，以及 `LANG` 和 `LC_ALL` 两个环境变量。
+- 不执行命令，也不自行读写文件。它只读取桌面版交给每个插件的信息：会话用量、额度、模型，以及 `LANG` 和 `LC_ALL` 两个环境变量。
 - 为了给请求计时，它接在响应流上：记录数据块到达的时间，读取每次响应的 token 用量和结束原因。它不读取、也不保存响应内容，每个数据块都原样传下去。
 - 为了重启后还能显示，它在插件存储 `~/.claude/plugins/store/usage-bar_*.json` 里保存 3 类数据：
   - 最近一次的额度百分比和重置时间。额度属于整个账号，所以各会话共用一份。
@@ -147,10 +139,10 @@ Claude Code 从托管设置里读这个配置项。
 
 ## 限制
 
-- 会话的 Claude Code 进程启动后，状态栏才会出现。桌面版里新建的对话要等发出第一条消息才启动进程，所以空的新对话不显示状态栏。
+- 对话开始运行后，状态栏才会出现。新建的对话要等发出第一条消息才开始运行，所以空的新对话不显示状态栏。
 - 额度百分比随模型响应一起下发。新启动的进程会先显示上次保存的值，等下一次响应到达后再更新。这个值可能比官方用量页面低 1 个百分点左右。
 - 插件拿不到横条的像素宽度，排版按 `bodyColumns × 8 px` 估算。状态栏会居中，所以左右留白一致，但文字宽度可能差几个像素。
-- 目前只支持桌面版。终端、VS Code 和手机端不显示状态栏，也不发额度提醒。这些界面里的会话存下的额度值是共用的，桌面版也能用。
+- 目前只支持桌面版。终端里的 Claude Code、VS Code 和手机端不显示状态栏，也不发额度提醒。这些界面里的会话存下的额度值是共用的，桌面版也能用。
 
 ## 开发
 

@@ -4,7 +4,7 @@
     "name": "zgmengde"
   },
   "metadata": {
-    "description": "usage-bar: a status row above the Claude Code prompt."
+    "description": "usage-bar: a status row above the prompt in the Claude desktop app."
   },
   "plugins": [
     {
