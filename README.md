@@ -2,8 +2,10 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A Claude Code mod that draws a status row just above the prompt: your 5-hour and weekly plan limits, how long the prompt cache stays warm, and context use.
+A mod for the Claude Code desktop app that draws a status row just above the prompt: your 5-hour and weekly plan limits, how long the prompt cache stays warm, and context use.
 A second row shows how the session is running: output speed, time to first token, cache hit rate and failed requests.
+
+For now it supports the desktop app only. In a terminal session it draws nothing and sends no limit notifications.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/preview-en-dark.png">
@@ -29,7 +31,7 @@ claude plugin install usage-bar --marketplace zgmengde/usage-bar
 ```
 
 In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `zgmengde/usage-bar`, then **Add plugin**.
-A mod installed at the user scope from a terminal also loads in the desktop app's Code tab.
+A mod installed at the user scope from a terminal also loads in the desktop app's Code tab, which is where it shows.
 
 ## What it shows
 
@@ -133,7 +135,7 @@ Claude Code reads this key from managed settings; on a machine with no managed s
 - The row appears once the session's Claude Code process is running. In the desktop app, a new conversation starts that process when you send its first message, so an empty new conversation shows no row.
 - Limit percentages come with model responses. A fresh process shows the values saved from the last response until the next one arrives, and they can read about a point lower than the official usage page.
 - Plugins do not get the band's pixel width, so the layout works from an estimate (`bodyColumns × 8 px`). The row is centered so the margins stay even, but a text can be off by a few pixels.
-- In a terminal there is no SVG: the row falls back to plain text with no icons, padded so the columns still line up.
+- Desktop app only, for now. Other surfaces (the terminal, VS Code, mobile) get no row and no limit notifications; limit values saved by a session there are shared, so the desktop row can still use them.
 
 ## Development
 

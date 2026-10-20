@@ -69,56 +69,66 @@ const turn = (reason: 'answer' | 'aborted' | 'error' = 'answer', agentId?: strin
   ...(agentId ? { agentId } : {}),
 })
 
+// 提醒只在横条画过桌面版之后才发，先在桌面版画一次
+const desktop = ($: { ui: { mount: (o: any) => Promise<unknown> } }) =>
+  $.ui.mount({ plugin: 'usage-bar', surface: 'desktop', component: 'AbovePrompt', props: props() })
+
 const measure = (rateLimits: SessionRateLimit[]) => ({ context: { window: 200_000 }, rateLimits, changed: ['rateLimits' as const] })
 
-const SURFACES = ['terminal', 'desktop'] as const
+test('桌面版：画出 5h 和周额度，不嵌套引擎占位节点', async ($, on) => {
+  world(on)
+  on('ui.render', () => ENGINE)
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'desktop', component: 'AbovePrompt', props: props() })
+  expect(JSON.stringify(await ui.drawn())).not.toContain('"engine"')
+  const svg = await ui.find({ type: 'Svg' })
+  expect(svg?.props.alt).toContain('5h 42%')
+  expect(svg?.props.alt).toContain('Week 85%')
+  expect(String(svg?.props.source)).toContain('<svg')
+})
 
-for (const surface of SURFACES) {
-  test(`${surface}：画出 5h 和周额度，不嵌套引擎占位节点`, async ($, on) => {
-    world(on)
-    on('ui.render', () => ENGINE)
-    await $.session.start({ cwd: '/tmp', surface, isInteractive: true })
-    const ui = await $.ui.mount({ plugin: 'usage-bar', surface, component: 'AbovePrompt', props: props() })
-    expect(JSON.stringify(await ui.drawn())).not.toContain('"engine"')
-    if (surface === 'desktop') {
-      const svg = await ui.find({ type: 'Svg' })
-      expect(svg?.props.alt).toContain('5h 42%')
-      expect(svg?.props.alt).toContain('Week 85%')
-      expect(String(svg?.props.source)).toContain('<svg')
-    } else {
-      expect(await ui.find({ type: 'Svg' })).toBe(undefined)
-      expect(await ui.find({ type: 'Text', text: '42%' })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: '85%' })).toBeDefined()
-    }
+test('桌面版：别的 mod 的横条在上，自己在最后', async ($, on) => {
+  world(on)
+  on('ui.render', ($$, e) => {
+    const { Text } = $$.ui.resolve(e)
+    return <Text>other band</Text>
   })
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'desktop', component: 'AbovePrompt', props: props() })
+  const tree = (await ui.drawn()) as unknown as { children: { type: string; children?: unknown[] }[] }
+  expect(tree.children[0]?.children).toEqual(['other band'])
+  expect(tree.children.at(-1)?.type).toBe('Svg')
+})
 
-  test(`${surface}：别的 mod 的横条在上，自己在最后`, async ($, on) => {
-    world(on)
-    on('ui.render', ($$, e) => {
-      const { Text } = $$.ui.resolve(e)
-      return <Text>other band</Text>
-    })
-    await $.session.start({ cwd: '/tmp', surface, isInteractive: true })
-    const ui = await $.ui.mount({ plugin: 'usage-bar', surface, component: 'AbovePrompt', props: props() })
-    const tree = (await ui.drawn()) as unknown as { children: { type: string; children?: unknown[] }[] }
-    expect(tree.children[0]?.children).toEqual(['other band'])
-    expect(tree.children.at(-1)?.type).toBe(surface === 'desktop' ? 'Svg' : 'Box')
-  })
+test('桌面版：窄屏时换成多行', { options: { show_context: true, show_cost: true } }, async ($, on) => {
+  world(on)
+  on('ui.render', () => ENGINE)
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  const rows = async (bodyColumns: number) => {
+    const m = await $.ui.mount({ plugin: 'usage-bar', surface: 'desktop', component: 'AbovePrompt', props: props({ bodyColumns }) })
+    return (await m.findAll({ type: 'Svg' })).length
+  }
+  expect(await rows(220)).toBe(1)
+  expect(await rows(40)).toBeGreaterThan(1)
+})
 
-  test(`${surface}：窄屏时换成多行`, { options: { show_context: true, show_cost: true } }, async ($, on) => {
-    world(on)
-    on('ui.render', () => ENGINE)
-    await $.session.start({ cwd: '/tmp', surface, isInteractive: true })
-    const rows = async (bodyColumns: number) => {
-      const m = await $.ui.mount({ plugin: 'usage-bar', surface, component: 'AbovePrompt', props: props({ bodyColumns }) })
-      // 桌面版每行一张 Svg；终端每行一个带 row- 前缀 key 的 Box
-      if (surface === 'desktop') return (await m.findAll({ type: 'Svg' })).length
-      return (await m.findAll({ type: 'Box' })).filter(f => f.key?.startsWith('row-')).length
-    }
-    expect(await rows(220)).toBe(1)
-    expect(await rows(40)).toBeGreaterThan(1)
+test('终端：只支持桌面版，不画横条也不提醒', { options: { notify_at: '80' } }, async ($, on) => {
+  const { sent, toasts } = world(on)
+  on('ui.render', ($$, e) => {
+    const { Text } = $$.ui.resolve(e)
+    return <Text>other band</Text>
   })
-}
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'terminal', component: 'AbovePrompt', props: props() })
+  // 原样交回下一层画的内容
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).toContain('other band')
+  expect(drawn).not.toContain('5h')
+  expect(await ui.find({ type: 'Svg' })).toBe(undefined)
+  await $.session.measure(measure(LIMITS))
+  expect(sent).toEqual([])
+  expect(toasts).toEqual([])
+})
 
 test('有问卷时让位，没有任何项时什么都不画', async ($, on) => {
   world(on, { limits: [] })
@@ -197,6 +207,7 @@ test('没有 session.start（热重载后）也会按分钟刷新', async ($, on
 test('提醒：每档一次，升档再提醒，窗口重置后重新提醒', { options: { notify_at: '80,95' } }, async ($, on) => {
   const { sent } = world(on)
   await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await desktop($)
   await $.session.measure(measure(LIMITS))
   await $.session.measure(measure(LIMITS))
   expect(sent).toEqual(['Weekly limit at 85%'])
@@ -206,9 +217,22 @@ test('提醒：每档一次，升档再提醒，窗口重置后重新提醒', { 
   expect(sent.at(-1)).toBe('Weekly limit at 81%')
 })
 
+test('先在终端画、再在桌面版画，提醒照发', { options: { notify_at: '80' } }, async ($, on) => {
+  const { sent } = world(on)
+  on('ui.render', () => ENGINE)
+  await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await $.ui.mount({ plugin: 'usage-bar', surface: 'terminal', component: 'AbovePrompt', props: props() })
+  await $.session.measure(measure(LIMITS))
+  expect(sent).toEqual([])
+  await desktop($)
+  await $.session.measure(measure(LIMITS))
+  expect(sent).toEqual(['Weekly limit at 85%'])
+})
+
 test('notify_at 为空时不提醒', { options: { notify_at: '' } }, async ($, on) => {
   const { sent } = world(on)
   await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await desktop($)
   await $.session.measure(measure(LIMITS))
   expect(sent).toEqual([])
 })
@@ -216,6 +240,7 @@ test('notify_at 为空时不提醒', { options: { notify_at: '' } }, async ($, o
 test('桌面版发不出通知时改用 toast', { options: { notify_at: '80' } }, async ($, on) => {
   const { toasts } = world(on, { notify: { isSent: false, reason: 'no-surface' } })
   await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await desktop($)
   await $.session.measure(measure(LIMITS))
   expect(toasts).toEqual(['Weekly limit at 85%'])
 })
@@ -223,6 +248,7 @@ test('桌面版发不出通知时改用 toast', { options: { notify_at: '80' } }
 test('用户关了通知时不弹 toast', { options: { notify_at: '80' } }, async ($, on) => {
   const { sent, toasts } = world(on, { notify: { isSent: false, reason: 'disabled' } })
   await $.session.start({ cwd: '/tmp', surface: 'desktop', isInteractive: true })
+  await desktop($)
   await $.session.measure(measure(LIMITS))
   expect(sent).toHaveLength(1)
   expect(toasts).toEqual([])
@@ -351,19 +377,6 @@ test('重启后从 store 恢复本会话的性能数据，/clear 后清掉', asy
   expect((await ui.findAll({ type: 'Svg' }))[1]?.props.alt).toBe('Speed 42 tok/s, TTFT 1.5s, Failed 3, Cache hit 95%')
   await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } })
   expect(await ui.findAll({ type: 'Svg' })).toHaveLength(1)
-})
-
-test('终端：两行按列补空格对齐', async ($, on) => {
-  const perf = { ttftMs: 3_000, ttftSteps: 2, decodeMs: 10_000, decodeTokens: 420, hitPercent: 95, hitWrite: false, failures: 0 }
-  world(on, { store: { perf: { s1: { at: START, perf } } } })
-  on('ui.render', () => ENGINE)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'terminal', component: 'AbovePrompt', props: props() })
-  const rows = (await ui.findAll({ type: 'Box' })).filter(f => f.key?.startsWith('row-'))
-  expect(rows).toHaveLength(2)
-  const text = JSON.stringify(await ui.drawn())
-  expect(text).toContain('Speed ')
-  expect(text).toMatch(/"\s{2,}"/)
 })
 
 test('请求结束 1 秒后写进 store，正常退出不删，再打开还能显示', async ($, on) => {

@@ -1,12 +1,13 @@
-// usage-bar：在输入框上方横条的最后一行画额度、缓存等状态。
+// usage-bar：在桌面版输入框上方横条的最后一行画额度、缓存等状态。
+// 目前只支持桌面版：终端等其他界面不画横条，也不发额度提醒。
 // 只读会话自己的用量数据，不联网、不跑命令。$.store 里只存 4 样：提醒过的额度、
 // 最近一次的额度、每个会话最近一轮的结束时间、每个会话的请求性能，
 // 后三样用来在重启后先显示上次的值。
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer, TurnStepChunk, TurnStepResult } from 'claude-code'
 
-import { buildItems, colorFor, layoutRows, nextPerf, parseConfig, resolveLang } from './model'
-import type { Config, Item, Lang, Perf, Row, Snapshot, Step } from './model'
+import { buildItems, layoutRows, nextPerf, parseConfig, resolveLang } from './model'
+import type { Config, Lang, Perf, Snapshot, Step } from './model'
 import { ROW_H, rowAlt, rowSvg } from './svg'
 
 const lastTurnAt = atom({ plugin: 'usage-bar', key: 'lastTurnAt' } as const, null)
@@ -22,8 +23,6 @@ const TURNS_KEEP = 20
 
 // 桌面版每个 bodyColumns 约 8 CSS px
 const PX_PER_COLUMN = 8
-// 终端里一个字符格约等于 textWidth 估算的 6.6px，进度条每格也按这个宽度折算
-const PX_PER_CELL = 6.6
 
 // 热重载和改配置都会重跑 register，但不会再触发 session.start，
 // 所以计时器、语言和压缩窗口放在这里，由每个钩子按需准备
@@ -35,6 +34,8 @@ type Runtime = {
   // 性能数据延迟写进 $.store 的计时器
   persist: Timer | null
   compact: { model: string; tokens: number } | null
+  // 横条在桌面版画过：只支持桌面版，提醒也只在这之后发
+  onDesktop: boolean
 }
 
 const bump = ($: EngineInterface) => void update($, tick, n => n + 1).catch(() => undefined)
@@ -156,53 +157,6 @@ async function snapshot($: EngineInterface, rt: Runtime, isWorking: boolean): Pr
   }
 }
 
-type TextUi = { Box: any; Text: any }
-
-// 终端里的字符格数：中日韩字符占两格
-const cellWidth = (text: string) => [...text].reduce((n, ch) => n + (/[　-鿿＀-￯]/.test(ch) ? 2 : 1), 0)
-
-const barCells = (row: Row) => Math.max(4, Math.round(row.barW / PX_PER_CELL))
-
-// 一项在终端里占几格，和 textRow 的拼法一致
-function itemCells(it: Item, cfg: Config, cells: number) {
-  const bar = cfg.bar !== 'none' && it.percent !== null ? cells + 1 : 0
-  return cellWidth(`${it.label} `) + bar + cellWidth(it.value) + (it.detail ? 1 + cellWidth(it.detail) : 0)
-}
-
-// 两行对齐时，每一列补到两行里较宽的那一项
-function textPads(rows: Row[], cfg: Config): number[][] {
-  if (rows.length !== 2 || !rows[0]!.slots) return rows.map(() => [])
-  const widths = rows.map(r => r.items.map(it => itemCells(it, cfg, barCells(r))))
-  const cols = Math.min(widths[0]!.length, widths[1]!.length)
-  return widths.map(ws => ws.map((w, i) => (i < cols ? Math.max(widths[0]![i]!, widths[1]![i]!) - w : 0)))
-}
-
-// 终端没有 Svg：用文字和方块进度条画同样的内容
-function textRow(ui: TextUi, row: Row, cfg: Config, key: string, pads: number[] = []) {
-  const { Box, Text } = ui
-  const cells = barCells(row)
-  const parts = row.items.flatMap((it: Item, i: number) => {
-    const tone = it.color ?? (it.percent !== null ? colorFor(cfg, it.percent) : undefined)
-    const filled = it.percent === null ? 0 : Math.max(0, Math.min(cells, Math.round((cells * it.percent) / 100)))
-    const out = [
-      i > 0 ? <Text dimColor>{' · '}</Text> : null,
-      <Text dimColor>{`${it.label} `}</Text>,
-      cfg.bar !== 'none' && it.percent !== null ? <Text color={tone}>{'■'.repeat(filled).padEnd(cells, '□') + ' '}</Text> : null,
-      <Text color={it.color ?? it.valueColor ?? tone} bold>
-        {it.value}
-      </Text>,
-      it.detail ? <Text dimColor>{` ${it.detail}`}</Text> : null,
-      pads[i] ? <Text>{' '.repeat(pads[i]!)}</Text> : null,
-    ]
-    return out.filter(Boolean)
-  })
-  return (
-    <Box key={key} flexDirection="row">
-      {parts}
-    </Box>
-  )
-}
-
 const NOTIFY_NAME: Record<Lang, Record<string, string>> = {
   en: { five_hour: '5-hour', seven_day: 'Weekly' },
   zh: { five_hour: '5 小时', seven_day: '每周' },
@@ -265,7 +219,7 @@ function stop(rt: Runtime) {
 
 export const register: Register = (on, options) => {
   const cfg = parseConfig(options as Record<string, unknown>)
-  const rt: Runtime = { cfg, lang: cfg.language === 'auto' ? null : cfg.language, minute: null, expiry: null, persist: null, compact: null }
+  const rt: Runtime = { cfg, lang: cfg.language === 'auto' ? null : cfg.language, minute: null, expiry: null, persist: null, compact: null, onDesktop: false }
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -360,11 +314,14 @@ export const register: Register = (on, options) => {
     const current = await ensure($, rt)
     $.ui.invalidate('ui.render')
     await saveLimits($, e.rateLimits).catch(() => undefined)
-    await notifyLimits($, cfg, current, e.rateLimits).catch(() => undefined)
+    if (rt.onDesktop) await notifyLimits($, cfg, current, e.rateLimits).catch(() => undefined)
     return measured
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // 只支持桌面版，其他界面原样交给下一层
+    if (e.surface !== 'desktop') return next(e)
+    rt.onDesktop = true
     if (e.props.hasSurvey) return next(e)
     await read($, tick)
     const lang = await resolveLangOnce($, rt)
@@ -377,29 +334,22 @@ export const register: Register = (on, options) => {
     const drawn = await Promise.resolve(next(e)).catch(() => null)
     const above = drawn && typeof drawn === 'object' && (drawn as { type?: string }).type !== 'engine' ? drawn : null
 
-    const ui = $.ui.resolve(e)
-    const { Box } = ui
+    const ui = $.ui.resolve(e) as ReturnType<typeof $.ui.resolve> & { Svg: any }
+    const { Box, Svg } = ui
+    // 元素表里没有 Svg 的桌面版画不了，交回下一层
+    if (!Svg) return next(e)
     const columns = e.props.bodyColumns || 100
-    // 终端的元素表里也有一个什么都不画的 Svg，所以还要看 surface
-    const isSvg = e.surface !== 'terminal' && 'Svg' in ui
     // 每列约 8px 是估算，再留出卡片内边距，避免撑破横条
     const width = Math.max(240, Math.min(1600, columns * PX_PER_COLUMN - 32))
 
-    const ours = isSvg
-      ? layoutRows(items, cfg, width).map((row, i, rows) => {
-          const { Svg } = ui as typeof ui & { Svg: any }
-          // 插件拿不到横条的真实像素宽度，估算的 width 只用来排版。画布只取内容宽度、
-          // 不写 width，横条会把它居中，左右留白才一样；几行共用同一个内容宽度，列才对得上
-          const content = Math.max(...rows.map(r => rowSvg(r, cfg).width))
-          const svg = rowSvg(row, cfg, content, content)
-          return <Svg key={`row-${i}`} source={svg.source} alt={rowAlt(row)} height={ROW_H} />
-        })
-      : // 终端不画图标，宽度按字符格折算
-        (() => {
-          const rows = layoutRows(items, { ...cfg, icons: false }, Math.max(160, columns * PX_PER_CELL))
-          const pads = textPads(rows, cfg)
-          return rows.map((row, i) => textRow(ui as unknown as TextUi, row, cfg, `row-${i}`, pads[i]))
-        })()
+    const rows = layoutRows(items, cfg, width)
+    // 插件拿不到横条的真实像素宽度，估算的 width 只用来排版。画布只取内容宽度、
+    // 不写 width，横条会把它居中，左右留白才一样；几行共用同一个内容宽度，列才对得上
+    const content = Math.max(...rows.map(r => rowSvg(r, cfg).width))
+    const ours = rows.map((row, i) => {
+      const svg = rowSvg(row, cfg, content, content)
+      return <Svg key={`row-${i}`} source={svg.source} alt={rowAlt(row)} height={ROW_H} />
+    })
 
     return (
       <Box flexDirection="column">

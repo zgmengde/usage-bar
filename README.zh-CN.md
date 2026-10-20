@@ -2,9 +2,11 @@
 
 [English](README.md) | 简体中文
 
-usage-bar 是一个 Claude Code mod，在输入框正上方画一行状态栏。
+usage-bar 是一个 Claude Code 桌面版 mod，在输入框正上方画一行状态栏。
 第一行显示 5 小时额度、每周额度、提示缓存还能热多久，以及上下文用量。
 第二行显示本会话的运行情况：输出速度、首字耗时、缓存命中率和失败次数。
+
+目前只支持桌面版。在终端会话里，它不画状态栏，也不发额度提醒。
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/preview-zh-dark.png">
@@ -36,7 +38,7 @@ claude plugin install usage-bar --marketplace zgmengde/usage-bar
 2. 选择 **Plugins**，再选 **Add marketplace**，填入 `zgmengde/usage-bar`。
 3. 选择 **Add plugin**。
 
-在终端里按 user 范围安装后，桌面版的 Code 标签页也会加载它。
+在终端里按 user 范围安装后，桌面版的 Code 标签页也会加载它，状态栏显示在桌面版里。
 
 ## 显示内容
 
@@ -148,7 +150,7 @@ Claude Code 从托管设置里读这个配置项。
 - 会话的 Claude Code 进程启动后，状态栏才会出现。桌面版里新建的对话要等发出第一条消息才启动进程，所以空的新对话不显示状态栏。
 - 额度百分比随模型响应一起下发。新启动的进程会先显示上次保存的值，等下一次响应到达后再更新。这个值可能比官方用量页面低 1 个百分点左右。
 - 插件拿不到横条的像素宽度，排版按 `bodyColumns × 8 px` 估算。状态栏会居中，所以左右留白一致，但文字宽度可能差几个像素。
-- 终端里没有 SVG，状态栏会退回纯文字、不显示图标，并补空格让各列仍然对齐。
+- 目前只支持桌面版。终端、VS Code 和手机端不显示状态栏，也不发额度提醒。这些界面里的会话存下的额度值是共用的，桌面版也能用。
 
 ## 开发
 

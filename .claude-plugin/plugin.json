@@ -1,7 +1,7 @@
 {
   "name": "usage-bar",
   "version": "0.1.0",
-  "description": "A configurable status row at the bottom of the band above the prompt: 5-hour and weekly plan limits, prompt-cache time left, and optional context, cost and other limits; a second row shows output speed, time to first token, cache hit rate and failed requests. Colors follow the percentage (green, Claude orange, red).",
+  "description": "Desktop app only. A configurable status row at the bottom of the band above the prompt: 5-hour and weekly plan limits, prompt-cache time left, and optional context, cost and other limits; a second row shows output speed, time to first token, cache hit rate and failed requests. Colors follow the percentage (green, Claude orange, red).",
   "author": { "name": "zgmengde" },
   "license": "MIT",
   "homepage": "https://github.com/zgmengde/usage-bar",
